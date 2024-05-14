@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 from pynput.mouse import Controller, Button
 import time
 import threading
@@ -46,11 +46,11 @@ class ToolTip:
             tw.destroy()
 
 class AutoClicker:
-    def __init__(self, button='left', click_type='single', cps=1, pattern=None):
+    def __init__(self, button='left', click_type='single', interval=100, pattern=None):
         self.button = MOUSE_BUTTONS[button]
         self.click_type = click_type
-        self.cps = cps
-        self.pattern = pattern if pattern else [1]
+        self.interval = interval / 1000.0  # Convert to seconds
+        self.pattern = pattern if pattern else [self.interval]
         self.running = False
         self.mouse_controller = Controller()
         self.click_thread = None
@@ -73,12 +73,12 @@ class AutoClicker:
             while self.running:
                 if self.click_type == 'single':
                     self.mouse_controller.click(self.button)
-                    time.sleep(1 / self.cps)
+                    time.sleep(self.interval)
                 elif self.click_type == 'double':
                     self.mouse_controller.click(self.button)
                     time.sleep(0.1)  # Short delay between double clicks
                     self.mouse_controller.click(self.button)
-                    time.sleep(1 / self.cps)
+                    time.sleep(self.interval)
                 elif self.click_type == 'pattern':
                     for interval in self.pattern:
                         if not self.running:
@@ -93,105 +93,140 @@ class AutoClickerGUI:
         self.root = root
         self.root.title("AutoClicker Settings")
         self.auto_clicker = AutoClicker()
-        self.hotkey = 'f5'
+        self.hotkey = 'ctrl+shift+a'
         self.setup_widgets()
         self.load_settings()
 
     def setup_widgets(self):
+        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-        self.dark_mode = tk.BooleanVar(value=False)
-        self.dark_mode_check = ttk.Checkbutton(self.root, text="Dark Mode", variable=self.dark_mode, command=self.toggle_dark_mode)
-        self.dark_mode_check.grid(row=8, column=0, columnspan=2, padx=10, pady=10)
+        # Click interval
+        interval_frame = ttk.LabelFrame(main_frame, text="Click interval", padding="10")
+        interval_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E))
 
-        self.button_label = ttk.Label(self.root, text="Select Button:")
-        self.button_label.grid(row=0, column=0, padx=10, pady=10)
+        self.hours_var = tk.IntVar(value=0)
+        self.minutes_var = tk.IntVar(value=0)
+        self.seconds_var = tk.IntVar(value=0)
+        self.milliseconds_var = tk.IntVar(value=100)
 
-        self.button_var = tk.StringVar()
-        self.button_dropdown = ttk.Combobox(self.root, textvariable=self.button_var, state='readonly')
+        ttk.Label(interval_frame, text="hours").grid(row=0, column=1)
+        ttk.Label(interval_frame, text="mins").grid(row=0, column=3)
+        ttk.Label(interval_frame, text="secs").grid(row=0, column=5)
+        ttk.Label(interval_frame, text="milliseconds").grid(row=0, column=7)
+
+        ttk.Spinbox(interval_frame, from_=0, to=23, textvariable=self.hours_var, width=5).grid(row=0, column=0)
+        ttk.Spinbox(interval_frame, from_=0, to=59, textvariable=self.minutes_var, width=5).grid(row=0, column=2)
+        ttk.Spinbox(interval_frame, from_=0, to=59, textvariable=self.seconds_var, width=5).grid(row=0, column=4)
+        ttk.Spinbox(interval_frame, from_=0, to=999, textvariable=self.milliseconds_var, width=7).grid(row=0, column=6)
+
+        # Click options
+        options_frame = ttk.LabelFrame(main_frame, text="Click options", padding="10")
+        options_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
+
+        self.button_var = tk.StringVar(value='left')
+        self.type_var = tk.StringVar(value='single')
+
+        ttk.Label(options_frame, text="Mouse button:").grid(row=0, column=0, padx=5, pady=5)
+        self.button_dropdown = ttk.Combobox(options_frame, textvariable=self.button_var, state='readonly')
         self.button_dropdown['values'] = list(MOUSE_BUTTONS.keys())
-        self.button_dropdown.current(0)
-        self.button_dropdown.grid(row=0, column=1, padx=10, pady=10)
-        self.button_dropdown.bind("<<ComboboxSelected>>", self.update_settings)
+        self.button_dropdown.grid(row=0, column=1, padx=5, pady=5)
 
-        self.type_label = ttk.Label(self.root, text="Select Click Type:")
-        self.type_label.grid(row=1, column=0, padx=10, pady=10)
-
-        self.type_var = tk.StringVar()
-        self.type_dropdown = ttk.Combobox(self.root, textvariable=self.type_var, state='readonly')
+        ttk.Label(options_frame, text="Click type:").grid(row=1, column=0, padx=5, pady=5)
+        self.type_dropdown = ttk.Combobox(options_frame, textvariable=self.type_var, state='readonly')
         self.type_dropdown['values'] = ['single', 'double', 'pattern']
-        self.type_dropdown.current(0)
-        self.type_dropdown.grid(row=1, column=1, padx=10, pady=10)
+        self.type_dropdown.grid(row=1, column=1, padx=5, pady=5)
         self.type_dropdown.bind("<<ComboboxSelected>>", self.update_click_type)
 
-        self.pattern_label = ttk.Label(self.root, text="Pattern Intervals (sec):")
-        self.pattern_label.grid(row=2, column=0, padx=10, pady=10)
+        # Add the pattern entry for click type pattern
+        self.pattern_var = tk.StringVar(value="0.1,0.2,0.3")  # Example default pattern
+        self.pattern_entry = ttk.Entry(options_frame, textvariable=self.pattern_var, state='disabled', width=20)
+        self.pattern_entry.grid(row=2, column=1, padx=5, pady=5)
+        ttk.Label(options_frame, text="Pattern (sec):").grid(row=2, column=0, padx=5, pady=5)
 
-        self.pattern_var = tk.StringVar(value="1")
-        self.pattern_entry = ttk.Entry(self.root, textvariable=self.pattern_var)
-        self.pattern_entry.grid(row=2, column=1, padx=10, pady=10)
-        self.pattern_entry.bind("<FocusOut>", self.update_settings)
+        # Click repeat
+        repeat_frame = ttk.LabelFrame(main_frame, text="Click repeat", padding="10")
+        repeat_frame.grid(row=1, column=1, sticky=(tk.W, tk.E))
 
-        self.cps_label = ttk.Label(self.root, text="Clicks Per Second:")
-        self.cps_label.grid(row=3, column=0, padx=10, pady=10)
+        self.repeat_var = tk.IntVar(value=1)
+        self.repeat_mode_var = tk.StringVar(value='repeat_until_stopped')
 
-        self.cps_var = tk.StringVar(value="1")
-        self.cps_entry = ttk.Entry(self.root, textvariable=self.cps_var)
-        self.cps_entry.grid(row=3, column=1, padx=10, pady=10)
-        self.cps_entry.bind("<FocusOut>", self.validate_cps)
+        self.repeat_times_entry = ttk.Entry(repeat_frame, textvariable=self.repeat_var, width=5)
+        self.repeat_times_entry.grid(row=0, column=1, padx=5, pady=5)
 
-        self.start_button = ttk.Button(self.root, text="Start Clicking", command=self.start_clicking)
-        self.start_button.grid(row=4, column=0, padx=10, pady=10)
+        ttk.Radiobutton(repeat_frame, text="Repeat", variable=self.repeat_mode_var, value='repeat', command=self.update_repeat_mode).grid(row=0, column=0, padx=5, pady=5)
+        ttk.Radiobutton(repeat_frame, text="Repeat until stopped", variable=self.repeat_mode_var, value='repeat_until_stopped', command=self.update_repeat_mode).grid(row=1, column=0, columnspan=2, padx=5, pady=5)
 
-        self.stop_button = ttk.Button(self.root, text="Stop Clicking", command=self.stop_clicking)
-        self.stop_button.grid(row=4, column=1, padx=10, pady=10)
+        self.repeat_times_entry.config(state='disabled')  # Start with disabled
 
-        self.status_label = ttk.Label(self.root, text="Status: Stopped", foreground="red")
-        self.status_label.grid(row=5, column=0, columnspan=2, padx=10, pady=10)
+        # Cursor position
+        position_frame = ttk.LabelFrame(main_frame, text="Cursor position", padding="10")
+        position_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E))
 
-        self.hotkey_label = ttk.Label(self.root, text="Set Hotkey:")
-        self.hotkey_label.grid(row=6, column=0, padx=10, pady=10)
+        self.position_var = tk.StringVar(value='current')
+        self.x_pos_var = tk.IntVar(value=0)
+        self.y_pos_var = tk.IntVar(value=0)
+
+        ttk.Radiobutton(position_frame, text="Current location", variable=self.position_var, value='current').grid(row=0, column=0, padx=5, pady=5)
+        ttk.Radiobutton(position_frame, text="Pick location", variable=self.position_var, value='pick').grid(row=0, column=1, padx=5, pady=5)
+
+        self.pick_location_button = ttk.Button(position_frame, text="Pick location", command=self.pick_location)
+        self.pick_location_button.grid(row=0, column=2, padx=5, pady=5)
+
+        ttk.Label(position_frame, text="X:").grid(row=1, column=0, padx=5, pady=5)
+        self.x_pos_entry = ttk.Entry(position_frame, textvariable=self.x_pos_var, width=5)
+        self.x_pos_entry.grid(row=1, column=1, padx=5, pady=5)
+
+        ttk.Label(position_frame, text="Y:").grid(row=1, column=2, padx=5, pady=5)
+        self.y_pos_entry = ttk.Entry(position_frame, textvariable=self.y_pos_var, width=5)
+        self.y_pos_entry.grid(row=1, column=3, padx=5, pady=5)
+
+        # Control buttons
+        self.start_button = ttk.Button(main_frame, text="Start (F6)", command=self.start_clicking)
+        self.start_button.grid(row=3, column=0, padx=5, pady=10, sticky=(tk.W, tk.E))
+
+        self.stop_button = ttk.Button(main_frame, text="Stop (F6)", command=self.stop_clicking)
+        self.stop_button.grid(row=3, column=1, padx=5, pady=10, sticky=(tk.W, tk.E))
 
         self.hotkey_var = tk.StringVar(value=self.hotkey)
-        self.hotkey_entry = ttk.Entry(self.root, textvariable=self.hotkey_var)
-        self.hotkey_entry.grid(row=6, column=1, padx=10, pady=10)
-        self.hotkey_entry.bind("<FocusOut>", self.update_hotkey)
+        self.hotkey_button = ttk.Button(main_frame, text="Hotkey setting", command=self.set_hotkey)
+        self.hotkey_button.grid(row=4, column=0, padx=5, pady=10, sticky=(tk.W, tk.E))
 
-        self.save_button = ttk.Button(self.root, text="Save Settings", command=self.save_settings)
-        self.save_button.grid(row=7, column=0, padx=10, pady=10)
+        self.record_button = ttk.Button(main_frame, text="Record & Playback", command=self.record_playback)
+        self.record_button.grid(row=4, column=1, padx=5, pady=10, sticky=(tk.W, tk.E))
 
-        self.load_button = ttk.Button(self.root, text="Load Settings", command=self.load_settings)
-        self.load_button.grid(row=7, column=1, padx=10, pady=10)
+        self.status_label = ttk.Label(main_frame, text="Status: Stopped", foreground="red")
+        self.status_label.grid(row=5, column=0, columnspan=2, padx=5, pady=5)
 
-        ToolTip(self.button_dropdown, "Select the mouse button to click")
-        ToolTip(self.type_dropdown, "Select the type of click (single, double, or pattern)")
-        ToolTip(self.pattern_entry, "Enter the pattern intervals in seconds, separated by commas (e.g., 1,0.5,1.5)")
-        ToolTip(self.cps_entry, "Enter the number of clicks per second")
-        ToolTip(self.start_button, "Start the auto-clicker")
-        ToolTip(self.stop_button, "Stop the auto-clicker")
-        ToolTip(self.hotkey_entry, "Set the hotkey to toggle the auto-clicker")
-        ToolTip(self.save_button, "Save the current settings")
-        ToolTip(self.load_button, "Load the saved settings")
+    def set_hotkey(self):
+        new_hotkey = simpledialog.askstring("Set Hotkey", "Enter new hotkey:", initialvalue=self.hotkey)
+        if new_hotkey:
+            try:
+                keyboard.remove_hotkey(self.hotkey)
+            except KeyError:
+                pass  # Ignore if the hotkey was not set before
+            self.hotkey = new_hotkey
+            try:
+                keyboard.add_hotkey(self.hotkey, self.toggle_clicking)
+                logging.info(f"Hotkey updated to {self.hotkey}")
+                self.hotkey_var.set(self.hotkey)
+            except Exception as e:
+                messagebox.showerror("Invalid Hotkey", f"Failed to set hotkey: {e}")
+                logging.error(f"Failed to set hotkey: {e}")
 
-    def toggle_dark_mode(self):
-        if self.dark_mode.get():
-            self.root.style.theme_use('alt')
+    def pick_location(self):
+        # Logic to pick the cursor position
+        pass
+
+    def record_playback(self):
+        # Logic to record and playback mouse movements and clicks
+        pass
+
+    def update_repeat_mode(self):
+        if self.repeat_mode_var.get() == 'repeat':
+            self.repeat_times_entry.config(state='normal')
         else:
-            self.root.style.theme_use('default')
-
-    def apply_theme(self):
-        if self.dark_mode.get():
-            self.root.style.theme_use('alt')
-        else:
-            self.root.style.theme_use('default')
-
-    def validate_cps(self, event=None):
-        try:
-            cps = int(self.cps_var.get())
-            if cps <= 0:
-                raise ValueError
-        except ValueError:
-            messagebox.showerror("Invalid Input", "Please enter a positive integer for CPS.")
-            self.cps_var.set("1")
+            self.repeat_times_entry.config(state='disabled')
 
     def update_click_type(self, event=None):
         click_type = self.type_var.get()
@@ -204,9 +239,13 @@ class AutoClickerGUI:
     def update_settings(self, event=None):
         button = self.button_var.get()
         click_type = self.type_var.get()
-        cps = int(self.cps_var.get())
+        hours = self.hours_var.get()
+        minutes = self.minutes_var.get()
+        seconds = self.seconds_var.get()
+        milliseconds = self.milliseconds_var.get()
+        interval = (hours * 3600000) + (minutes * 60000) + (seconds * 1000) + milliseconds
         pattern = [float(x) for x in self.pattern_var.get().split(',')] if click_type == 'pattern' else None
-        self.auto_clicker = AutoClicker(button=button, click_type=click_type, cps=cps, pattern=pattern)
+        self.auto_clicker = AutoClicker(button=button, click_type=click_type, interval=interval, pattern=pattern)
 
     def start_clicking(self):
         self.update_settings()
@@ -216,22 +255,6 @@ class AutoClickerGUI:
     def stop_clicking(self):
         self.auto_clicker.stop_clicking()
         self.status_label.config(text="Status: Stopped", foreground="red")
-
-    def update_hotkey(self, event=None):
-        new_hotkey = self.hotkey_var.get()
-        try:
-            keyboard.remove_hotkey(self.hotkey)
-        except KeyError:
-            pass  # Ignore if the hotkey was not set before
-        self.hotkey = new_hotkey
-        try:
-            keyboard.add_hotkey(self.hotkey, self.toggle_clicking)
-            logging.info(f"Hotkey updated to {self.hotkey}")
-        except Exception as e:
-            messagebox.showerror("Invalid Hotkey", f"Failed to set hotkey: {e}")
-            logging.error(f"Failed to set hotkey: {e}")
-            self.hotkey_var.set(self.hotkey)
-
 
     def toggle_clicking(self):
         if self.auto_clicker.running:
@@ -243,8 +266,8 @@ class AutoClickerGUI:
         settings = {
             "button": self.button_var.get(),
             "click_type": self.type_var.get(),
+            "interval": self.milliseconds_var.get(),
             "pattern": self.pattern_var.get(),
-            "cps": self.cps_var.get(),
             "hotkey": self.hotkey_var.get()
         }
         with open("settings.json", "w") as f:
@@ -258,7 +281,7 @@ class AutoClickerGUI:
             self.button_var.set(settings["button"])
             self.type_var.set(settings["click_type"])
             self.pattern_var.set(settings["pattern"])
-            self.cps_var.set(settings["cps"])
+            self.milliseconds_var.set(settings["interval"])
             self.hotkey_var.set(settings["hotkey"])
             self.update_hotkey()
             self.update_settings()
