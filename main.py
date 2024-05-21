@@ -98,7 +98,9 @@ class AutoClickerGUI:
         self.auto_clicker = AutoClicker()
         self.hotkey = 'f5'
         self.setup_widgets()
+        self.setup_color_customization()  # Add this line
         self.load_settings()
+        self.load_color_settings()  # Add this line
 
     def setup_widgets(self):
         self.setup_dark_mode_checkbutton()
@@ -189,10 +191,64 @@ class AutoClickerGUI:
         ToolTip(self.save_button, "Save the current settings")
         ToolTip(self.load_button, "Load the saved settings")
 
+    def setup_color_customization(self):
+        self.bg_color_label = ttk.Label(self.root, text="Window Color:")
+        self.bg_color_label.grid(row=9, column=0, padx=10, pady=10)
+        self.bg_color_button = ttk.Button(self.root, text="Choose Color", command=self.choose_bg_color)
+        self.bg_color_button.grid(row=9, column=1, padx=10, pady=10)
+        
+        self.text_color_label = ttk.Label(self.root, text="Text Color:")
+        self.text_color_label.grid(row=10, column=0, padx=10, pady=10)
+        self.text_color_button = ttk.Button(self.root, text="Choose Color", command=self.choose_text_color)
+        self.text_color_button.grid(row=10, column=1, padx=10, pady=10)
+
+    def choose_bg_color(self):
+        color_code = colorchooser.askcolor(title="Choose window color")[1]
+        if color_code:
+            self.root.configure(bg=color_code)
+            self.save_color_settings(bg_color=color_code)
+
+    def choose_text_color(self):
+        color_code = colorchooser.askcolor(title="Choose text color")[1]
+        if color_code:
+            self.apply_text_color(color_code)
+            self.save_color_settings(text_color=color_code)
+
+    def apply_text_color(self, color):
+        for widget in self.root.winfo_children():
+            if isinstance(widget, ttk.Label) or isinstance(widget, ttk.Button) or isinstance(widget, ttk.Checkbutton):
+                widget.configure(foreground=color)
+
+    def save_color_settings(self, bg_color=None, text_color=None):
+        try:
+            with open("color_settings.json", "r") as f:
+                color_settings = json.load(f)
+        except FileNotFoundError:
+            color_settings = {}
+
+        if bg_color:
+            color_settings["bg_color"] = bg_color
+        if text_color:
+            color_settings["text_color"] = text_color
+
+        with open("color_settings.json", "w") as f:
+            json.dump(color_settings, f)
+
+    def load_color_settings(self):
+        try:
+            with open("color_settings.json", "r") as f:
+                color_settings = json.load(f)
+            if "bg_color" in color_settings:
+                self.root.configure(bg=color_settings["bg_color"])
+            if "text_color" in color_settings:
+                self.apply_text_color(color_settings["text_color"])
+        except FileNotFoundError:
+            pass
+
     def toggle_dark_mode(self):
         self.apply_theme()
 
-        def apply_theme(self):
+    def apply_theme(self):
         if self.dark_mode.get():
             self.root.style.theme_use('alt')
         else:
@@ -224,71 +280,72 @@ class AutoClickerGUI:
 
     def start_clicking(self):
         self.update_settings()
-        self.auto_clicker.start_clicking()
-        self.status_label.config(text="Status: Running", foreground="green")
+        self.status_label.config(text=“Status: Running”, foreground=“green”)
 
-    def stop_clicking(self):
-        self.auto_clicker.stop_clicking()
-        self.status_label.config(text="Status: Stopped", foreground="red")
+	def stop_clicking(self):
+    self.auto_clicker.stop_clicking()
+    self.status_label.config(text="Status: Stopped", foreground="red")
 
-    def update_hotkey(self, event=None):
-        new_hotkey = self.hotkey_var.get()
-        try:
-            keyboard.remove_hotkey(self.hotkey)
-        except KeyError:
-            pass  # Ignore if the hotkey was not set before
-        self.hotkey = new_hotkey
-        try:
-            keyboard.add_hotkey(self.hotkey, self.toggle_clicking)
-            logging.info(f"Hotkey updated to {self.hotkey}")
-        except Exception as e:
-            messagebox.showerror("Invalid Hotkey", f"Failed to set hotkey: {e}")
-            logging.error(f"Failed to set hotkey: {e}")
-            self.hotkey_var.set(self.hotkey)
+def update_hotkey(self, event=None):
+    new_hotkey = self.hotkey_var.get()
+    try:
+        keyboard.remove_hotkey(self.hotkey)
+    except KeyError:
+        pass  # Ignore if the hotkey was not set before
+    self.hotkey = new_hotkey
+    try:
+        keyboard.add_hotkey(self.hotkey, self.toggle_clicking)
+        logging.info(f"Hotkey updated to {self.hotkey}")
+    except Exception as e:
+        messagebox.showerror("Invalid Hotkey", f"Failed to set hotkey: {e}")
+        logging.error(f"Failed to set hotkey: {e}")
+        self.hotkey_var.set(self.hotkey)
 
-    def toggle_clicking(self):
-        if self.auto_clicker.running:
-            self.stop_clicking()
-        else:
-            self.start_clicking()
+def toggle_clicking(self):
+    if self.auto_clicker.running:
+        self.stop_clicking()
+    else:
+        self.start_clicking()
 
-    def save_settings(self):
-        settings = {
-            "button": self.button_var.get(),
-            "click_type": self.type_var.get(),
-            "pattern": self.pattern_var.get(),
-            "cps": self.cps_var.get(),
-            "hotkey": self.hotkey_var.get()
-        }
-        with open("settings.json", "w") as f:
-            json.dump(settings, f)
-        logging.info("Settings saved.")
+def save_settings(self):
+    settings = {
+        "button": self.button_var.get(),
+        "click_type": self.type_var.get(),
+        "pattern": self.pattern_var.get(),
+        "cps": self.cps_var.get(),
+        "hotkey": self.hotkey_var.get()
+    }
+    with open("settings.json", "w") as f:
+        json.dump(settings, f)
+    logging.info("Settings saved.")
 
-    def load_settings(self):
-        try:
-            with open("settings.json", "r") as f:
-                settings = json.load(f)
-            self.button_var.set(settings["button"])
-            self.type_var.set(settings["click_type"])
-            self.pattern_var.set(settings["pattern"])
-            self.cps_var.set(settings["cps"])
-            self.hotkey_var.set(settings["hotkey"])
-            self.update_hotkey()
-            self.update_settings()
-            logging.info("Settings loaded.")
-        except FileNotFoundError:
-            logging.warning("Settings file not found. Using default settings.")
-        except Exception as e:
-            logging.error(f"Failed to load settings: {e}")
-
+def load_settings(self):
+    try:
+        with open("settings.json", "r") as f:
+            settings = json.load(f)
+        self.button_var.set(settings["button"])
+        self.type_var.set(settings["click_type"])
+        self.pattern_var.set(settings["pattern"])
+        self.cps_var.set(settings["cps"])
+        self.hotkey_var.set(settings["hotkey"])
+        self.update_hotkey()
+        self.update_settings()
+        logging.info("Settings loaded.")
+    except FileNotFoundError:
+        logging.warning("Settings file not found. Using default settings.")
+    except Exception as e:
+        logging.error(f"Failed to load settings: {e}")
 
 class AutoClickerApp:
     def __init__(self, root):
-        self.root = root
-        self.style = ttk.Style()
-        self.root.style = self.style
-        self.apply_styles()
-        self.gui = AutoClickerGUI(root)
+    	self.root = root
+    	self.root.title("AutoClicker Settings")
+    	self.auto_clicker = AutoClicker()
+    	self.hotkey = 'f5'
+    	self.setup_widgets()
+    	self.setup_color_customization()  # Add this line
+        self.load_settings()
+    	self.load_color_settings()  # Add this line
 
     def apply_styles(self):
         dark_theme = {
