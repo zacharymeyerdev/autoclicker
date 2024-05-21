@@ -17,6 +17,7 @@ MOUSE_BUTTONS = {
 # Setting up logging
 logging.basicConfig(filename='autoclicker.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
 class ToolTip:
     def __init__(self, widget, text):
         self.widget = widget
@@ -44,6 +45,7 @@ class ToolTip:
         self.tip_window = None
         if tw:
             tw.destroy()
+
 
 class AutoClicker:
     def __init__(self, button='left', click_type='single', cps=1, pattern=None):
@@ -88,6 +90,7 @@ class AutoClicker:
         except Exception as e:
             logging.error(f"Error during clicking process: {e}")
 
+
 class AutoClickerGUI:
     def __init__(self, root):
         self.root = root
@@ -98,14 +101,26 @@ class AutoClickerGUI:
         self.load_settings()
 
     def setup_widgets(self):
+        self.setup_dark_mode_checkbutton()
+        self.setup_button_dropdown()
+        self.setup_type_dropdown()
+        self.setup_pattern_entry()
+        self.setup_cps_entry()
+        self.setup_control_buttons()
+        self.setup_status_label()
+        self.setup_hotkey_entry()
+        self.setup_save_load_buttons()
 
+        self.setup_tooltips()
+
+    def setup_dark_mode_checkbutton(self):
         self.dark_mode = tk.BooleanVar(value=False)
         self.dark_mode_check = ttk.Checkbutton(self.root, text="Dark Mode", variable=self.dark_mode, command=self.toggle_dark_mode)
         self.dark_mode_check.grid(row=8, column=0, columnspan=2, padx=10, pady=10)
 
+    def setup_button_dropdown(self):
         self.button_label = ttk.Label(self.root, text="Select Button:")
         self.button_label.grid(row=0, column=0, padx=10, pady=10)
-
         self.button_var = tk.StringVar()
         self.button_dropdown = ttk.Combobox(self.root, textvariable=self.button_var, state='readonly')
         self.button_dropdown['values'] = list(MOUSE_BUTTONS.keys())
@@ -113,9 +128,9 @@ class AutoClickerGUI:
         self.button_dropdown.grid(row=0, column=1, padx=10, pady=10)
         self.button_dropdown.bind("<<ComboboxSelected>>", self.update_settings)
 
+    def setup_type_dropdown(self):
         self.type_label = ttk.Label(self.root, text="Select Click Type:")
         self.type_label.grid(row=1, column=0, padx=10, pady=10)
-
         self.type_var = tk.StringVar()
         self.type_dropdown = ttk.Combobox(self.root, textvariable=self.type_var, state='readonly')
         self.type_dropdown['values'] = ['single', 'double', 'pattern']
@@ -123,45 +138,47 @@ class AutoClickerGUI:
         self.type_dropdown.grid(row=1, column=1, padx=10, pady=10)
         self.type_dropdown.bind("<<ComboboxSelected>>", self.update_click_type)
 
+    def setup_pattern_entry(self):
         self.pattern_label = ttk.Label(self.root, text="Pattern Intervals (sec):")
         self.pattern_label.grid(row=2, column=0, padx=10, pady=10)
-
         self.pattern_var = tk.StringVar(value="1")
         self.pattern_entry = ttk.Entry(self.root, textvariable=self.pattern_var)
         self.pattern_entry.grid(row=2, column=1, padx=10, pady=10)
         self.pattern_entry.bind("<FocusOut>", self.update_settings)
 
+    def setup_cps_entry(self):
         self.cps_label = ttk.Label(self.root, text="Clicks Per Second:")
         self.cps_label.grid(row=3, column=0, padx=10, pady=10)
-
         self.cps_var = tk.StringVar(value="1")
         self.cps_entry = ttk.Entry(self.root, textvariable=self.cps_var)
         self.cps_entry.grid(row=3, column=1, padx=10, pady=10)
         self.cps_entry.bind("<FocusOut>", self.validate_cps)
 
+    def setup_control_buttons(self):
         self.start_button = ttk.Button(self.root, text="Start Clicking", command=self.start_clicking)
         self.start_button.grid(row=4, column=0, padx=10, pady=10)
-
         self.stop_button = ttk.Button(self.root, text="Stop Clicking", command=self.stop_clicking)
         self.stop_button.grid(row=4, column=1, padx=10, pady=10)
 
+    def setup_status_label(self):
         self.status_label = ttk.Label(self.root, text="Status: Stopped", foreground="red")
         self.status_label.grid(row=5, column=0, columnspan=2, padx=10, pady=10)
 
+    def setup_hotkey_entry(self):
         self.hotkey_label = ttk.Label(self.root, text="Set Hotkey:")
         self.hotkey_label.grid(row=6, column=0, padx=10, pady=10)
-
         self.hotkey_var = tk.StringVar(value=self.hotkey)
         self.hotkey_entry = ttk.Entry(self.root, textvariable=self.hotkey_var)
         self.hotkey_entry.grid(row=6, column=1, padx=10, pady=10)
         self.hotkey_entry.bind("<FocusOut>", self.update_hotkey)
 
+    def setup_save_load_buttons(self):
         self.save_button = ttk.Button(self.root, text="Save Settings", command=self.save_settings)
         self.save_button.grid(row=7, column=0, padx=10, pady=10)
-
         self.load_button = ttk.Button(self.root, text="Load Settings", command=self.load_settings)
         self.load_button.grid(row=7, column=1, padx=10, pady=10)
 
+    def setup_tooltips(self):
         ToolTip(self.button_dropdown, "Select the mouse button to click")
         ToolTip(self.type_dropdown, "Select the type of click (single, double, or pattern)")
         ToolTip(self.pattern_entry, "Enter the pattern intervals in seconds, separated by commas (e.g., 1,0.5,1.5)")
@@ -173,12 +190,9 @@ class AutoClickerGUI:
         ToolTip(self.load_button, "Load the saved settings")
 
     def toggle_dark_mode(self):
-        if self.dark_mode.get():
-            self.root.style.theme_use('alt')
-        else:
-            self.root.style.theme_use('default')
+        self.apply_theme()
 
-    def apply_theme(self):
+        def apply_theme(self):
         if self.dark_mode.get():
             self.root.style.theme_use('alt')
         else:
@@ -232,7 +246,6 @@ class AutoClickerGUI:
             logging.error(f"Failed to set hotkey: {e}")
             self.hotkey_var.set(self.hotkey)
 
-
     def toggle_clicking(self):
         if self.auto_clicker.running:
             self.stop_clicking()
@@ -268,6 +281,7 @@ class AutoClickerGUI:
         except Exception as e:
             logging.error(f"Failed to load settings: {e}")
 
+
 class AutoClickerApp:
     def __init__(self, root):
         self.root = root
@@ -297,6 +311,7 @@ class AutoClickerApp:
             self.style.theme_create('default', parent='alt', settings=light_theme)
 
 # Running the app
-root = tk.Tk()
-app = AutoClickerApp(root)
-root.mainloop()
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = AutoClickerApp(root)
+    root.mainloop()
