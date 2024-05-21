@@ -1,1 +1,7 @@
-{"button": "left", "click_type": "single", "pattern": "1", "cps": "1", "hotkey": "ctrl+shift+a"}
+{
+    "button": "left",
+    "click_type": "single",
+    "pattern": "1",
+    "cps": "1",
+    "hotkey": "ctrl+shift+a"
+}
