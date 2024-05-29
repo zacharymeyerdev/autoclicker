@@ -6,6 +6,7 @@ import threading
 import keyboard
 import json
 import logging
+from pynput import mouse
 
 # Constants for mouse buttons
 MOUSE_BUTTONS = {
@@ -54,6 +55,8 @@ class AutoClicker:
         self.running = False
         self.mouse_controller = Controller()
         self.click_thread = None
+        self.repeat_mode = 'repeat_until_stopped'
+        self.repeat_count = 1
 
     def start_clicking(self):
         if not self.running:
@@ -70,21 +73,29 @@ class AutoClicker:
 
     def click_process(self):
         try:
+            count = 0
             while self.running:
                 if self.click_type == 'single':
                     self.mouse_controller.click(self.button)
+                    count += 1
                     time.sleep(self.interval)
                 elif self.click_type == 'double':
                     self.mouse_controller.click(self.button)
                     time.sleep(0.1)  # Short delay between double clicks
                     self.mouse_controller.click(self.button)
+                    count += 2
                     time.sleep(self.interval)
                 elif self.click_type == 'pattern':
                     for interval in self.pattern:
                         if not self.running:
                             break
                         self.mouse_controller.click(self.button)
+                        count += 1
                         time.sleep(interval)
+                
+                if self.repeat_mode == 'repeat' and count >= self.repeat_count:
+                    self.stop_clicking()
+                    break
         except Exception as e:
             logging.error(f"Error during clicking process: {e}")
 
@@ -96,6 +107,7 @@ class AutoClickerGUI:
         self.hotkey = 'ctrl+shift+a'
         self.setup_widgets()
         self.load_settings()
+        self.register_hotkey()
 
     def setup_widgets(self):
         main_frame = ttk.Frame(self.root, padding="10")
@@ -206,21 +218,85 @@ class AutoClickerGUI:
             except KeyError:
                 pass  # Ignore if the hotkey was not set before
             self.hotkey = new_hotkey
-            try:
-                keyboard.add_hotkey(self.hotkey, self.toggle_clicking)
-                logging.info(f"Hotkey updated to {self.hotkey}")
-                self.hotkey_var.set(self.hotkey)
-            except Exception as e:
-                messagebox.showerror("Invalid Hotkey", f"Failed to set hotkey: {e}")
-                logging.error(f"Failed to set hotkey: {e}")
+            self.register_hotkey()
+            self.hotkey_var.set(self.hotkey)
+            logging.info(f"Hotkey updated to {self.hotkey}")
+
+    def register_hotkey(self):
+        try:
+            keyboard.add_hotkey(self.hotkey, self.toggle_clicking)
+            logging.info(f"Hotkey {self.hotkey} registered.")
+        except Exception as e:
+            messagebox.showerror("Invalid Hotkey", f"Failed to set hotkey: {e}")
+            logging.error(f"Failed to set hotkey: {e}")
 
     def pick_location(self):
-        # Logic to pick the cursor position
-        pass
+        messagebox.showinfo("Pick Location", "Move the mouse to the desired position and press 'Enter' to select the location.")
+
+        def on_key_press(key):
+            if key == keyboard.Key.enter:
+                x, y = self.mouse_controller.position
+                self.x_pos_var.set(x)
+                self.y_pos_var.set(y)
+                messagebox.showinfo("Location Picked", f"Location set to X: {x}, Y: {y}")
+                # Stop listener
+                return False
+
+        # Create a mouse controller instance
+        self.mouse_controller = Controller()
+
+        # Set up listener for keyboard events
+        with keyboard.Listener(on_press=on_key_press) as listener:
+            listener.join()
+
 
     def record_playback(self):
-        # Logic to record and playback mouse movements and clicks
-        pass
+        self.recording = []
+        messagebox.showinfo("Record", "Press 'R' to start recording, 'S' to stop recording, and 'P' to playback the recording.")
+
+        def on_click(x, y, button, pressed):
+            if pressed:
+                event = ('click', x, y, button)
+                self.recording.append(event)
+                logging.info(f"Recorded click at ({x}, {y}) with {button}")
+
+        def on_move(x, y):
+            event = ('move', x, y)
+            self.recording.append(event)
+            logging.info(f"Recorded move to ({x}, {y})")
+
+        def on_key_press(key):
+            try:
+                if key.char == 'r':
+                    self.recording = []
+                    messagebox.showinfo("Recording", "Recording started. Press 'S' to stop.")
+                    return True
+                elif key.char == 's':
+                    messagebox.showinfo("Recording Stopped", "Recording stopped. Press 'P' to playback.")
+                    return False
+                elif key.char == 'p':
+                    play_recording()
+                    return False
+            except AttributeError:
+                pass
+
+        def play_recording():
+            for event in self.recording:
+                if event[0] == 'move':
+                    self.mouse_controller.position = (event[1], event[2])
+                    time.sleep(0.01)  # Small delay to mimic human-like movement
+                elif event[0] == 'click':
+                    x, y, button = event[1], event[2], event[3]
+                    self.mouse_controller.position = (x, y)
+                    self.mouse_controller.click(button)
+                    time.sleep(0.1)  # Small delay to mimic human-like clicking
+
+        # Set up listeners for mouse and keyboard events
+        with keyboard.Listener(on_press=on_key_press) as key_listener:
+            with mouse.Listener(on_click=on_click, on_move=on_move) as mouse_listener:
+                key_listener.join()
+                mouse_listener.stop()
+
 
     def update_repeat_mode(self):
         if self.repeat_mode_var.get() == 'repeat':
@@ -246,6 +322,8 @@ class AutoClickerGUI:
         interval = (hours * 3600000) + (minutes * 60000) + (seconds * 1000) + milliseconds
         pattern = [float(x) for x in self.pattern_var.get().split(',')] if click_type == 'pattern' else None
         self.auto_clicker = AutoClicker(button=button, click_type=click_type, interval=interval, pattern=pattern)
+        self.auto_clicker.repeat_mode = self.repeat_mode_var.get()
+        self.auto_clicker.repeat_count = self.repeat_var.get()
 
     def start_clicking(self):
         self.update_settings()
@@ -283,7 +361,7 @@ class AutoClickerGUI:
             self.pattern_var.set(settings["pattern"])
             self.milliseconds_var.set(settings["interval"])
             self.hotkey_var.set(settings["hotkey"])
-            self.update_hotkey()
+            self.register_hotkey()
             self.update_settings()
             logging.info("Settings loaded.")
         except FileNotFoundError:
