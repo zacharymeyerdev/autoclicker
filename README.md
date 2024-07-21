@@ -1,5 +1,6 @@
 # autoclicker
-Here's the structure for the other files in your project:
+This is a work in progress and is very annoying to iron out.
+Formatting, commenting, and bug fixing helped out by ChatGPT/Copilot.
 
 ### README.md
 ```markdown
@@ -65,5 +66,3 @@ This project is licensed under the MIT License.
     "hotkey": "f5"
 }
 ```
-
-Now you have a complete structure for your AutoClicker project. If you need further customization or additional features, feel free to ask!
