@@ -1,11 +1,8 @@
-<<<<<<< HEAD
-{"button": "left", "click_type": "single", "pattern": "1", "cps": "1", "hotkey": "f5"}
-=======
 {
-    "button": "left",
-    "click_type": "single",
-    "pattern": "1",
-    "cps": "1",
-    "hotkey": "ctrl+shift+a"
+  "button": "left",
+  "click_type": "single",
+  "pattern": "0.001",
+  "cps": 100.0,
+  "hotkey": "f5",
+  "dark": false
 }
->>>>>>> 6b8c40a267a7a25d9f038d9450c7642365651763
