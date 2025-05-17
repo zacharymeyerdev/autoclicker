@@ -1,12 +1,12 @@
 # AutoClicker
 
-A lightweight, cross-platform Python utility for **automating mouse clicks**.  
+A lightweight, cross-platform Python utility for automating mouse clicks.  
 It ships with an intuitive Tkinter GUI, dark-mode support, configurable click
 patterns, and a global hotkey so you can toggle it from any application.
 
 ---
 
-## ✨ Features
+## Features
 
 | Category | Details |
 | :-- | :-- |
@@ -20,7 +20,7 @@ patterns, and a global hotkey so you can toggle it from any application.
 
 ---
 
-## 🛠 Requirements
+## Requirements
 
 | Package | Purpose |
 | :-- | :-- |
